@@ -7,7 +7,7 @@ import { logger } from './stubs';
 const QUOTA_API_ENDPOINTS = [
   'https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:fetchAvailableModels',
   'https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels',
-  'https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels',
+  'https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels'
 ] as const;
 const CLOUD_CODE_BASE_URL = 'https://cloudcode-pa.googleapis.com';
 const USER_AGENT = 'antigravity/1.11.3 Darwin/arm64'; // Keeping the same UA as source
@@ -20,8 +20,8 @@ export class QuotaService {
       timeout: timeoutSecs * 1000,
       headers: {
         'User-Agent': USER_AGENT,
-        'Content-Type': 'application/json',
-      },
+        'Content-Type': 'application/json'
+      }
     });
   }
 
@@ -30,22 +30,18 @@ export class QuotaService {
    */
   private static async fetchProjectId(
     accessToken: string,
-    email: string,
+    email: string
   ): Promise<[string | undefined, string | undefined]> {
     const client = this.createClient();
     const meta = { metadata: { ideType: 'ANTIGRAVITY' } };
 
     try {
-      const res = await client.post<LoadProjectResponse>(
-        `${CLOUD_CODE_BASE_URL}/v1internal:loadCodeAssist`,
-        meta,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'User-Agent': 'antigravity/windows/amd64',
-          },
-        },
-      );
+      const res = await client.post<LoadProjectResponse>(`${CLOUD_CODE_BASE_URL}/v1internal:loadCodeAssist`, meta, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'User-Agent': 'antigravity/windows/amd64'
+        }
+      });
 
       if (res.status >= 200 && res.status < 300) {
         const data = res.data;
@@ -81,7 +77,7 @@ export class QuotaService {
    */
   private static async fetchQuotaInner(
     accessToken: string,
-    email: string,
+    email: string
   ): Promise<{ quotaData: QuotaData; projectId?: string }> {
     // 1. Get Project ID and Subscription Type
     const [projectId, subscriptionTier] = await this.fetchProjectId(accessToken, email);
@@ -105,8 +101,8 @@ export class QuotaService {
           const response = await client.post<QuotaApiResponse>(endpoint, currentPayload, {
             headers: {
               Authorization: `Bearer ${accessToken}`,
-              'User-Agent': USER_AGENT,
-            },
+              'User-Agent': USER_AGENT
+            }
           });
 
           const quotaResponse = response.data;
@@ -141,14 +137,12 @@ export class QuotaService {
               logger.warn('Quota API returned 403 without project fallback; marking account as forbidden');
               return {
                 quotaData: this.createForbiddenQuotaData(subscriptionTier),
-                projectId,
+                projectId
               };
             }
 
             if (hasNextEndpoint && this.shouldFallbackQuotaStatus(status)) {
-              logger.warn(
-                `Quota API ${endpoint} returned ${status}, falling back to next endpoint`,
-              );
+              logger.warn(`Quota API ${endpoint} returned ${status}, falling back to next endpoint`);
               lastError = new Error(`HTTP ${status} - ${responseBodyText}`);
               await this.waitBeforeNextQuotaEndpoint();
               break;
@@ -176,14 +170,11 @@ export class QuotaService {
     throw lastError ?? new Error('Unknown error in fetchQuota');
   }
 
-  private static toQuotaData(
-    quotaResponse: QuotaApiResponse,
-    subscriptionTier: string | undefined,
-  ): QuotaData {
+  private static toQuotaData(quotaResponse: QuotaApiResponse, subscriptionTier: string | undefined): QuotaData {
     const quotaData: QuotaData = {
       models: {},
       isForbidden: false,
-      subscriptionTier,
+      subscriptionTier
     };
 
     logger.info(`Quota API returned ${Object.keys(quotaResponse.models || {}).length} models:`);
@@ -219,7 +210,7 @@ export class QuotaService {
     return {
       models: {},
       isForbidden: true,
-      subscriptionTier,
+      subscriptionTier
     };
   }
 

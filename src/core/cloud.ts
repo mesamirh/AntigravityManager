@@ -20,9 +20,9 @@ export async function refreshAccessToken(refreshToken: string) {
     client_id: CLIENT_ID,
     client_secret: CLIENT_SECRET,
     refresh_token: refreshToken,
-    grant_type: 'refresh_token',
+    grant_type: 'refresh_token'
   });
-  
+
   const res = await fetch(URL_TOKEN, {
     method: 'POST',
     body: params,
@@ -41,7 +41,7 @@ export async function fetchProjectId(accessToken: string) {
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
+          Authorization: `Bearer ${accessToken}`,
           'User-Agent': USER_AGENT,
           'Content-Type': 'application/json'
         },
@@ -63,32 +63,32 @@ export async function fetchProjectId(accessToken: string) {
 export async function fetchLiveQuota(accessToken: string) {
   const projectId = await fetchProjectId(accessToken);
   const payload = projectId ? { project: projectId } : {};
-  
+
   let lastError = new Error('No endpoints available');
-  
+
   for (const endpoint of ENDPOINTS_QUOTA) {
     try {
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
+          Authorization: `Bearer ${accessToken}`,
           'User-Agent': USER_AGENT,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(payload)
       });
-      
+
       if (res.status === 401 || res.status === 403) {
         const errText = await res.text().catch(() => '');
         lastError = new Error(`Quota fetch failed (${res.status}) on ${endpoint}: ${res.statusText} - ${errText}`);
         continue;
       }
-      
+
       if (!res.ok) {
         const errText = await res.text().catch(() => '');
         throw new Error(`Quota fetch failed (${res.status}) on ${endpoint}: ${res.statusText} - ${errText}`);
       }
-      
+
       const rawData = await res.json();
       const result: any = { models: {} };
       if (rawData.models) {
@@ -107,7 +107,7 @@ export async function fetchLiveQuota(accessToken: string) {
       lastError = e;
     }
   }
-  
+
   throw lastError;
 }
 
@@ -118,19 +118,19 @@ export async function refreshAllQuotas(): Promise<string[]> {
     try {
       let token = JSON.parse(acc.token_json);
       if (!token.access_token) {
-         errors.push(`Account ${acc.email} is missing an access token.`);
-         continue;
+        errors.push(`Account ${acc.email} is missing an access token.`);
+        continue;
       }
-      
+
       // Auto refresh if expired
       const now = Date.now();
       if (token.expiry_timestamp && now >= token.expiry_timestamp && token.refresh_token) {
         const newTokens = await refreshAccessToken(token.refresh_token);
         token.access_token = newTokens.access_token;
-        token.expiry_timestamp = now + ((newTokens.expires_in || 3600) * 1000);
+        token.expiry_timestamp = now + (newTokens.expires_in || 3600) * 1000;
         updateToken(acc.email, token);
       }
-      
+
       const quota = await fetchLiveQuota(token.access_token);
       updateQuota(acc.email, quota);
     } catch (e: any) {

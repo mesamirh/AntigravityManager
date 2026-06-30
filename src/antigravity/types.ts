@@ -80,12 +80,7 @@ export interface Message {
 }
 
 export type ContentBlock =
-  | TextBlock
-  | ThinkingBlock
-  | ImageBlock
-  | ToolUseBlock
-  | ToolResultBlock
-  | RedactedThinkingBlock;
+  TextBlock | ThinkingBlock | ImageBlock | ToolUseBlock | ToolResultBlock | RedactedThinkingBlock;
 
 export interface TextBlock {
   type: 'text';

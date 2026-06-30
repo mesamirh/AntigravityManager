@@ -5,9 +5,10 @@ import { refreshAllQuotas } from './cloud';
 import fs from 'fs';
 import path from 'path';
 
-const APP_DATA = process.platform === 'win32' 
-  ? path.join(process.env.APPDATA || '', 'AntigravityManager')
-  : path.join(process.env.HOME || '', '.config', 'AntigravityManager');
+const APP_DATA =
+  process.platform === 'win32'
+    ? path.join(process.env.APPDATA || '', 'AntigravityManager')
+    : path.join(process.env.HOME || '', '.config', 'AntigravityManager');
 
 const CONFIG_FILE = path.join(APP_DATA, 'proxy_config.json');
 
@@ -15,12 +16,12 @@ export function getProxyConfig() {
   if (fs.existsSync(CONFIG_FILE)) {
     try {
       return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
-    } catch(e) {}
+    } catch (e) {}
   }
   return { port: 8080, timeoutMs: 30000 };
 }
 
-export function saveProxyConfig(config: { port: number, timeoutMs: number }) {
+export function saveProxyConfig(config: { port: number; timeoutMs: number }) {
   if (!fs.existsSync(APP_DATA)) fs.mkdirSync(APP_DATA, { recursive: true });
   fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
 }
@@ -42,7 +43,7 @@ async function checkAndAutoSwitch() {
   await refreshAllQuotas();
   const active = getActiveAccount();
   if (!active) return;
-  
+
   let needsSwitch = false;
   try {
     const q = JSON.parse(active.quota_json);
@@ -68,26 +69,26 @@ async function checkAndAutoSwitch() {
     let bestQuotaScore = -1;
 
     for (const acc of accounts) {
-       let score = 0;
-       try {
-         const q = JSON.parse(acc.quota_json);
-         let total = 0;
-         let count = 0;
-         if (q && q.models) {
-           for (const [name, m] of Object.entries<any>(q.models)) {
-             if (!name.startsWith('chat_') && !name.startsWith('tab_')) {
-               total += m.percentage || 0;
-               count++;
-             }
-           }
-         }
-         if (count > 0) score = total / count;
-       } catch (e) {}
+      let score = 0;
+      try {
+        const q = JSON.parse(acc.quota_json);
+        let total = 0;
+        let count = 0;
+        if (q && q.models) {
+          for (const [name, m] of Object.entries<any>(q.models)) {
+            if (!name.startsWith('chat_') && !name.startsWith('tab_')) {
+              total += m.percentage || 0;
+              count++;
+            }
+          }
+        }
+        if (count > 0) score = total / count;
+      } catch (e) {}
 
-       if (score > bestQuotaScore) {
-         bestQuotaScore = score;
-         bestAccount = acc.email;
-       }
+      if (score > bestQuotaScore) {
+        bestQuotaScore = score;
+        bestAccount = acc.email;
+      }
     }
 
     if (bestAccount && bestAccount !== active.email && bestQuotaScore >= 5) {
@@ -99,7 +100,7 @@ async function checkAndAutoSwitch() {
 export function startProxy() {
   if (server) return;
   const config = getProxyConfig();
-  
+
   server = http.createServer((req, res) => {
     if (req.method === 'POST' && (req.url === '/v1/chat/completions' || req.url === '/v1/messages')) {
       req.setTimeout(config.timeoutMs);
@@ -107,10 +108,14 @@ export function startProxy() {
       const active = getActiveAccount();
       if (!active) {
         res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'No active account found in AntigravityManager' }));
+        res.end(
+          JSON.stringify({
+            error: 'No active account found in AntigravityManager'
+          })
+        );
         return;
       }
-      
+
       let token = '';
       try {
         const tokenObj = JSON.parse(active.token_json);
@@ -121,7 +126,7 @@ export function startProxy() {
 
       // Read body
       let body = '';
-      req.on('data', chunk => body += chunk);
+      req.on('data', (chunk) => (body += chunk));
       req.on('end', async () => {
         let parsedBody: any = {};
         try {
@@ -132,26 +137,40 @@ export function startProxy() {
         const mappedModel = modelMapping[requestedModel] || requestedModel;
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        
+
         if (req.url === '/v1/messages') {
           // Anthropic compatibility layer
-          res.end(JSON.stringify({
-            id: 'msg_proxy',
-            type: 'message',
-            role: 'assistant',
-            model: mappedModel,
-            content: [{ type: 'text', text: `[Anthropic API Proxied] Mapped ${requestedModel} -> ${mappedModel} using account: ${active.email}` }]
-          }));
+          res.end(
+            JSON.stringify({
+              id: 'msg_proxy',
+              type: 'message',
+              role: 'assistant',
+              model: mappedModel,
+              content: [
+                {
+                  type: 'text',
+                  text: `[Anthropic API Proxied] Mapped ${requestedModel} -> ${mappedModel} using account: ${active.email}`
+                }
+              ]
+            })
+          );
         } else {
           // OpenAI compatibility layer
-          res.end(JSON.stringify({
-            id: 'chatcmpl-proxy',
-            object: 'chat.completion',
-            model: mappedModel,
-            choices: [{
-              message: { role: 'assistant', content: `[OpenAI API Proxied] Mapped ${requestedModel} -> ${mappedModel} using account: ${active.email}` }
-            }]
-          }));
+          res.end(
+            JSON.stringify({
+              id: 'chatcmpl-proxy',
+              object: 'chat.completion',
+              model: mappedModel,
+              choices: [
+                {
+                  message: {
+                    role: 'assistant',
+                    content: `[OpenAI API Proxied] Mapped ${requestedModel} -> ${mappedModel} using account: ${active.email}`
+                  }
+                }
+              ]
+            })
+          );
         }
       });
     } else {
@@ -159,7 +178,7 @@ export function startProxy() {
       res.end('Not Found');
     }
   });
-  
+
   server.listen(config.port, () => {
     // silently running in background
     monitorInterval = setInterval(checkAndAutoSwitch, 5 * 60 * 1000);

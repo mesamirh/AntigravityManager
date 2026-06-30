@@ -1,56 +1,79 @@
-import { intro, select, isCancel, cancel, spinner } from '@clack/prompts';
+import { intro, select, isCancel, cancel } from '@clack/prompts';
 import picocolors from 'picocolors';
 import { startProxy, stopProxy } from './core/proxy';
-import { 
-  listAccounts, 
-  addAccountInteractive, 
-  removeAccountInteractive, 
-  importIDEAccounts, 
-  switchAccountInteractive 
-} from './commands/accounts';
-import { 
-  viewQuotas, 
-  refreshQuotasInteractive, 
-  autoSwitchInteractive, 
-  watchQuotas 
-} from './commands/quotas';
-import { 
-  backupRestoreInteractive, 
-  processControlInteractive, 
-  runDiagnostics 
-} from './commands/system';
-import { 
-  manageAliasesInteractive, 
-  proxyConfigInteractive, 
-  validateTokensInteractive 
-} from './commands/config';
+import { getAccounts } from './core/db';
+import { accountsMenu } from './commands/accounts';
+import { quotasMenu } from './commands/quotas';
+import { systemMenu } from './commands/system';
+
+function calculatePooledQuota(): { gemini: string; claude: string } {
+  const accounts = getAccounts();
+  if (accounts.length === 0) return { gemini: 'N/A', claude: 'N/A' };
+
+  let gTotal = 0,
+    gCount = 0;
+  let cTotal = 0,
+    cCount = 0;
+
+  for (const acc of accounts) {
+    try {
+      const q = JSON.parse(acc.quota_json);
+      if (q && q.models) {
+        for (const [modelName, m] of Object.entries<any>(q.models)) {
+          if (modelName.includes('gemini')) {
+            gTotal += m.percentage || 0;
+            gCount++;
+          } else if (modelName.includes('claude')) {
+            cTotal += m.percentage || 0;
+            cCount++;
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
+  return {
+    gemini: gCount === 0 ? 'N/A' : `${Math.round(gTotal / gCount)}%`,
+    claude: cCount === 0 ? 'N/A' : `${Math.round(cTotal / cCount)}%`
+  };
+}
 
 async function main() {
   console.clear();
   intro(picocolors.bgBlue(picocolors.white(' Antigravity Manager CLI ')));
-  
+
   // Start the background local API proxy
   startProxy();
 
   while (true) {
+    console.clear();
+    intro(picocolors.bgBlue(picocolors.white(' Antigravity Manager CLI ')));
+    const pooled = calculatePooledQuota();
+    console.log(
+      picocolors.dim(
+        `  Proxy: ${picocolors.green('Running (:8080)')} | Pooled Quotas - Gemini: ${picocolors.cyan(pooled.gemini)}, Claude: ${picocolors.cyan(pooled.claude)}`
+      )
+    );
+    console.log('');
+
     const action = await select({
-      message: 'What would you like to do?',
+      message: 'Main Dashboard:',
       options: [
-        { value: 'list', label: 'List Accounts', hint: 'View all configured accounts' },
-        { value: 'view-quota', label: 'View Detailed Quotas', hint: 'View model-by-model quota breakdown' },
-        { value: 'add', label: 'Add Account', hint: 'Add a new Google Cloud account to the database via OAuth' },
-        { value: 'remove', label: 'Remove Account', hint: 'Delete an account from the database' },
-        { value: 'import-ide', label: 'Import from IDE', hint: 'Extract Google accounts from VS Code/Cursor state' },
-        { value: 'switch', label: 'Switch Account', hint: 'Change the active Google Cloud AI account' },
-        { value: 'auto-switch', label: 'Auto-Switch', hint: 'Automatically pick the account with best quota' },
-        { value: 'refresh', label: 'Refresh Quotas', hint: 'Fetch latest usage from Google Cloud API' },
-        { value: 'validate', label: 'Validate Tokens', hint: 'Check token expiry and auto-refresh' },
-        { value: 'alias', label: 'Manage Aliases', hint: 'Set shortcuts like "work" or "personal"' },
-        { value: 'proxy-config', label: 'Proxy Configuration', hint: 'Configure API endpoints and mapping' },
-        { value: 'backup', label: 'Backup & Restore', hint: 'Export/Import accounts to JSON' },
-        { value: 'watch', label: 'Live Monitor', hint: 'Watch quotas update in real-time' },
-        { value: 'process', label: 'Process Control', hint: 'Manage Antigravity App processes' },
-        { value: 'doctor', label: 'Diagnostics', hint: 'Run system health checks' },
+        {
+          value: 'accounts',
+          label: 'Manage Accounts',
+          hint: 'Add, switch, or remove Google Cloud accounts'
+        },
+        {
+          value: 'quotas',
+          label: 'Quotas & Monitoring',
+          hint: 'View, refresh, and monitor usage limits'
+        },
+        {
+          value: 'system',
+          label: 'System & Settings',
+          hint: 'Proxy config, aliases, backup, diagnostics'
+        },
         { value: 'exit', label: 'Exit' }
       ]
     });
@@ -61,33 +84,17 @@ async function main() {
       process.exit(0);
     }
 
-    const s = spinner();
-
     switch (action) {
-      case 'list': await listAccounts(); break;
-      case 'view-quota': await viewQuotas(); break;
-      case 'add': await addAccountInteractive(s); break;
-      case 'remove': await removeAccountInteractive(s); break;
-      case 'import-ide': await importIDEAccounts(s); break;
-      case 'switch': await switchAccountInteractive(s); break;
-      case 'auto-switch': await autoSwitchInteractive(s); break;
-      case 'refresh': await refreshQuotasInteractive(s); break;
-      case 'validate': await validateTokensInteractive(s); break;
-      case 'alias': await manageAliasesInteractive(); break;
-      case 'proxy-config': await proxyConfigInteractive(s); break;
-      case 'backup': await backupRestoreInteractive(s); break;
-      case 'watch': watchQuotas(); break;
-      case 'process': await processControlInteractive(s); break;
-      case 'doctor': runDiagnostics(s); break;
+      case 'accounts':
+        await accountsMenu();
+        break;
+      case 'quotas':
+        await quotasMenu();
+        break;
+      case 'system':
+        await systemMenu();
+        break;
     }
-    
-    // Pause before showing the menu again so the user can read the output
-    await select({
-      message: 'Press Enter to return to the main menu...',
-      options: [{ value: 'ok', label: 'Return to Menu' }]
-    });
-
-    console.log(''); 
   }
 }
 

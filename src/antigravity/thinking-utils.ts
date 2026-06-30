@@ -84,11 +84,11 @@ export function gracefulDegradeThinking(block: ContentBlock): ContentBlock | nul
   if (thinkingBlock.thinking && thinkingBlock.thinking.length > 0) {
     // Convert to text block to preserve content
     logger.info(
-      `[Thinking-Utils] Converting invalid thinking block to text. Content length: ${thinkingBlock.thinking.length}`,
+      `[Thinking-Utils] Converting invalid thinking block to text. Content length: ${thinkingBlock.thinking.length}`
     );
     return {
       type: 'text',
-      text: thinkingBlock.thinking,
+      text: thinkingBlock.thinking
     };
   }
 

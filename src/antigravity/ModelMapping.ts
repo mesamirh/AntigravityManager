@@ -6,7 +6,7 @@ const PUBLIC_SUPPORTED_MODELS = [
   'gemini-3.1-pro-low',
   'gemini-3-flash',
   'claude-sonnet-4-6-thinking',
-  'claude-opus-4-6-thinking',
+  'claude-opus-4-6-thinking'
 ] as const;
 
 const CLAUDE_TO_GEMINI: Record<string, string> = {
@@ -69,7 +69,7 @@ const CLAUDE_TO_GEMINI: Record<string, string> = {
   'gemini-2.0-flash': 'gemini-3-flash',
   'gemini-2.0-flash-online': 'gemini-3-flash',
   'gemini-3-pro-image': 'gemini-3-pro-image',
-  'internal-background-task': 'gemini-3-flash',
+  'internal-background-task': 'gemini-3-flash'
 };
 
 const DYNAMIC_IMAGE_BASE_MODEL = 'gemini-3-pro-image';
@@ -87,7 +87,7 @@ const GEMINI_MODEL_ALIASES: Record<string, string> = {
   'gemini-3-pro-image-preview': 'gemini-3-pro-image',
   'gemini-3-flash-preview': 'gemini-3-flash',
   'gemini-3.1-pro-preview': 'gemini-3.1-pro-high',
-  'gemini-3.1-pro': 'gemini-3.1-pro-high',
+  'gemini-3.1-pro': 'gemini-3.1-pro-high'
 };
 
 export function getSupportedModels(): string[] {
@@ -104,9 +104,7 @@ export function updateDynamicForwardingRules(oldModel: string, newModel: string)
     return;
   }
   if (!DYNAMIC_MODEL_FORWARDING_RULES.has(normalizedOld)) {
-    logger.info(
-      `[Router] Registered dynamic forwarding rule: ${normalizedOld} -> ${normalizedNew}`,
-    );
+    logger.info(`[Router] Registered dynamic forwarding rule: ${normalizedOld} -> ${normalizedNew}`);
   }
   DYNAMIC_MODEL_FORWARDING_RULES.set(normalizedOld, normalizedNew);
 }
@@ -117,7 +115,7 @@ export function getDynamicForwardingTarget(modelId: string): string | undefined 
 
 export function getAllDynamicModels(
   customMapping: Record<string, string> = {},
-  dynamicModelIds?: Iterable<string>,
+  dynamicModelIds?: Iterable<string>
 ): string[] {
   const modelIds = new Set<string>();
 
@@ -175,21 +173,17 @@ export function resolveModelRoute(
   originalModel: string,
   customMapping: Record<string, string>,
   openaiMapping: Record<string, string>,
-  anthropicMapping: Record<string, string>,
+  anthropicMapping: Record<string, string>
 ): string {
   const dynamicForwarded = getDynamicForwardingTarget(originalModel);
   if (dynamicForwarded && getSupportedModels().includes(dynamicForwarded)) {
-    logger.info(
-      `[Router] Dynamic deprecated-model forwarding: ${originalModel} -> ${dynamicForwarded}`,
-    );
+    logger.info(`[Router] Dynamic deprecated-model forwarding: ${originalModel} -> ${dynamicForwarded}`);
     return dynamicForwarded;
   }
 
   // 1. Check custom exact mapping (Highest priority)
   if (customMapping[originalModel]) {
-    logger.info(
-      `[Router] Using custom exact mapping: ${originalModel} -> ${customMapping[originalModel]}`,
-    );
+    logger.info(`[Router] Using custom exact mapping: ${originalModel} -> ${customMapping[originalModel]}`);
     return customMapping[originalModel];
   }
 
@@ -207,9 +201,7 @@ export function resolveModelRoute(
     lowerModel === 'gpt-4'
   ) {
     if (openaiMapping['gpt-4-series']) {
-      logger.info(
-        `[Router] Using GPT-4 series mapping: ${originalModel} -> ${openaiMapping['gpt-4-series']}`,
-      );
+      logger.info(`[Router] Using GPT-4 series mapping: ${originalModel} -> ${openaiMapping['gpt-4-series']}`);
       return openaiMapping['gpt-4-series'];
     }
   }
@@ -222,9 +214,7 @@ export function resolveModelRoute(
     lowerModel.includes('turbo')
   ) {
     if (openaiMapping['gpt-4o-series']) {
-      logger.info(
-        `[Router] Using GPT-4o/3.5 series mapping: ${originalModel} -> ${openaiMapping['gpt-4o-series']}`,
-      );
+      logger.info(`[Router] Using GPT-4o/3.5 series mapping: ${originalModel} -> ${openaiMapping['gpt-4o-series']}`);
       return openaiMapping['gpt-4o-series'];
     }
   }
@@ -233,14 +223,12 @@ export function resolveModelRoute(
   if (lowerModel.startsWith('gpt-5')) {
     // Prefer gpt-5-series mapping, fallback to gpt-4-series if missing
     if (openaiMapping['gpt-5-series']) {
-      logger.info(
-        `[Router] Using GPT-5 series mapping: ${originalModel} -> ${openaiMapping['gpt-5-series']}`,
-      );
+      logger.info(`[Router] Using GPT-5 series mapping: ${originalModel} -> ${openaiMapping['gpt-5-series']}`);
       return openaiMapping['gpt-5-series'];
     }
     if (openaiMapping['gpt-4-series']) {
       logger.info(
-        `[Router] Using GPT-4 series mapping (GPT-5 fallback): ${originalModel} -> ${openaiMapping['gpt-4-series']}`,
+        `[Router] Using GPT-4 series mapping (GPT-5 fallback): ${originalModel} -> ${openaiMapping['gpt-4-series']}`
       );
       return openaiMapping['gpt-4-series'];
     }
@@ -256,9 +244,7 @@ export function resolveModelRoute(
     }
 
     if (anthropicMapping[familyKey]) {
-      logger.warn(
-        `[Router] Using Anthropic series mapping: ${originalModel} -> ${anthropicMapping[familyKey]}`,
-      );
+      logger.warn(`[Router] Using Anthropic series mapping: ${originalModel} -> ${anthropicMapping[familyKey]}`);
       return anthropicMapping[familyKey];
     }
 
@@ -283,8 +269,7 @@ function shouldHideDeprecatedModelFromList(modelId: string): boolean {
     return true;
   }
 
-  const isLegacyGeminiPro =
-    /^gemini-3(\.0)?-pro($|-)/.test(normalized) && !normalized.startsWith('gemini-3-pro-image');
+  const isLegacyGeminiPro = /^gemini-3(\.0)?-pro($|-)/.test(normalized) && !normalized.startsWith('gemini-3-pro-image');
   if (isLegacyGeminiPro) {
     return true;
   }

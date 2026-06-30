@@ -29,14 +29,10 @@ class SignatureStoreImpl {
     const newLen = sig.length;
 
     if (newLen > existingLen) {
-      logger.info(
-        `[ThoughtSig] Storing new signature (length: ${newLen}, replacing old: ${existingLen})`,
-      );
+      logger.info(`[ThoughtSig] Storing new signature (length: ${newLen}, replacing old: ${existingLen})`);
       this.signature = sig;
     } else {
-      logger.debug(
-        `[ThoughtSig] Skipping shorter signature (new length: ${newLen}, existing: ${existingLen})`,
-      );
+      logger.debug(`[ThoughtSig] Skipping shorter signature (new length: ${newLen}, existing: ${existingLen})`);
     }
   }
 

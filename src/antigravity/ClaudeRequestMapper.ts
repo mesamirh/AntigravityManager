@@ -15,13 +15,9 @@ import {
   GenerationConfig,
   ImageConfig,
   FunctionDeclaration,
-  SafetySetting,
+  SafetySetting
 } from './types';
-import {
-  buildUserAgent,
-  FALLBACK_VERSION,
-  resolveLocalInstalledVersion,
-} from './stubs';
+import { buildUserAgent, FALLBACK_VERSION, resolveLocalInstalledVersion } from './stubs';
 
 /**
  * Request Configuration
@@ -46,7 +42,7 @@ const SAFETY_SETTINGS: SafetySetting[] = [
   { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'OFF' },
   { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'OFF' },
   { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'OFF' },
-  { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'OFF' },
+  { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'OFF' }
 ];
 
 /**
@@ -58,7 +54,7 @@ const SAFETY_SETTINGS: SafetySetting[] = [
 export function transformClaudeRequestIn(
   claudeReq: ClaudeRequest,
   projectId?: string,
-  userAgent?: string,
+  userAgent?: string
 ): GeminiInternalRequest {
   // Check for networking tools (server tool or built-in tool)
   const hasWebSearchTool = detectsNetworkingTool(claudeReq.tools);
@@ -86,12 +82,11 @@ export function transformClaudeRequestIn(
   const thinkingType = (claudeReq.thinking?.type ?? '').toLowerCase();
   const autoThinkingEnabled =
     !claudeReq.thinking && shouldEnableThinkingByDefault(requestConfig.finalModel, claudeReq.model);
-  let isThinkingEnabled =
-    thinkingType === 'enabled' || thinkingType === 'adaptive' || autoThinkingEnabled;
+  let isThinkingEnabled = thinkingType === 'enabled' || thinkingType === 'adaptive' || autoThinkingEnabled;
 
   if (isThinkingEnabled && !targetModelSupportsThinking(requestConfig.finalModel)) {
     logger.warn(
-      `[Thinking-Mode] Target model ${requestConfig.finalModel} does not support thinking. Disabling thinking mode.`,
+      `[Thinking-Mode] Target model ${requestConfig.finalModel} does not support thinking. Disabling thinking mode.`
     );
     isThinkingEnabled = false;
   }
@@ -116,7 +111,7 @@ export function transformClaudeRequestIn(
     claudeReq,
     hasWebSearchTool,
     requestConfig.finalModel,
-    isThinkingEnabled,
+    isThinkingEnabled
   );
   // Update thinking config based on the final decision
   if (!isThinkingEnabled && generationConfig.thinkingConfig) {
@@ -129,7 +124,7 @@ export function transformClaudeRequestIn(
     toolIdToName,
     isThinkingEnabled,
     allowDummyThought,
-    requestConfig.finalModel,
+    requestConfig.finalModel
   );
 
   // 3. Tools
@@ -145,7 +140,7 @@ export function transformClaudeRequestIn(
     toolConfig?: { functionCallingConfig: { mode: string } };
   } = {
     contents,
-    safetySettings: [...SAFETY_SETTINGS],
+    safetySettings: [...SAFETY_SETTINGS]
   };
 
   deepCleanUndefined(innerRequest);
@@ -188,7 +183,7 @@ export function transformClaudeRequestIn(
     requestConfig,
     innerRequest: innerRequest as GeminiInternalRequest['request'],
     projectId,
-    userAgent,
+    userAgent
   });
 
   if (claudeReq.metadata?.user_id) {
@@ -212,7 +207,7 @@ function buildInternalRequestBody(params: {
     request: params.innerRequest,
     model: params.requestConfig.finalModel,
     userAgent: params.userAgent?.trim() || buildUserAgent(discoveryVersion),
-    requestType: isAgentRequest ? 'agent' : 'image_gen',
+    requestType: isAgentRequest ? 'agent' : 'image_gen'
   };
 
   if (normalizedProjectId) {
@@ -236,11 +231,7 @@ function createOfficialRequestId(): string {
  * Resolves request configuration
  * Determines request type and whether to inject search tools based on model name and tools
  */
-function resolveRequestConfig(
-  originalModel: string,
-  mappedModel: string,
-  tools?: Tool[],
-): ResolvedRequestConfig {
+function resolveRequestConfig(originalModel: string, mappedModel: string, tools?: Tool[]): ResolvedRequestConfig {
   // 1. Image Generation Check
   if (isGeminiImageModel(mappedModel)) {
     const { imageConfig, parsedBaseModel } = parseImageConfig(originalModel);
@@ -248,7 +239,7 @@ function resolveRequestConfig(
       requestType: 'image_gen',
       injectGoogleSearch: false,
       finalModel: parsedBaseModel,
-      imageConfig,
+      imageConfig
     };
   }
 
@@ -272,7 +263,7 @@ function resolveRequestConfig(
     requestType: enableNetworking ? 'web_search' : 'agent',
     injectGoogleSearch: enableNetworking,
     finalModel,
-    imageConfig: null,
+    imageConfig: null
   };
 }
 
@@ -303,9 +294,7 @@ function parseImageConfig(modelName: string): {
 
 function isGeminiImageModel(modelName: string): boolean {
   const normalized = modelName.toLowerCase();
-  return (
-    normalized.startsWith('gemini-3-pro-image') || normalized.startsWith('gemini-3.1-pro-image')
-  );
+  return normalized.startsWith('gemini-3-pro-image') || normalized.startsWith('gemini-3.1-pro-image');
 }
 
 function isGeminiFlashModel(modelName: string): boolean {
@@ -376,7 +365,7 @@ function detectsNetworkingTool(tools?: (Tool | GeminiToolDeclaration)[]): boolea
     'google_search',
     'web_search_20250305',
     'google_search_retrieval',
-    'builtin_web_search',
+    'builtin_web_search'
   ];
 
   for (const tool of tools) {
@@ -425,7 +414,7 @@ function injectGoogleSearchTool(body: { tools?: GeminiToolDeclaration[] }, mappe
   const hasFunctions = toolsArr.some((t) => t.functionDeclarations);
   if (hasFunctions) {
     logger.info(
-      `[Claude-Request] Skipping googleSearch injection for ${mappedModel ?? 'unknown-model'} because functionDeclarations are present (v1internal incompatible)`,
+      `[Claude-Request] Skipping googleSearch injection for ${mappedModel ?? 'unknown-model'} because functionDeclarations are present (v1internal incompatible)`
     );
     return;
   }
@@ -439,9 +428,7 @@ function injectGoogleSearchTool(body: { tools?: GeminiToolDeclaration[] }, mappe
  * Builds system instruction
  * Converts Claude system prompts to Gemini format with a default assistant identity directive.
  */
-function buildSystemInstruction(
-  system: ClaudeRequest['system'],
-): { parts: { text: string }[] } | null {
+function buildSystemInstruction(system: ClaudeRequest['system']): { parts: { text: string }[] } | null {
   const assistantIdentityDirective =
     'You are Antigravity, a powerful agentic AI coding assistant designed by the Google Deepmind team working on Advanced Agentic Coding.\n' +
     'You are pair programming with a USER to solve their coding task. The task may require creating a new codebase, modifying or debugging an existing codebase, or simply answering a question.\n' +
@@ -501,10 +488,7 @@ const MIN_SIGNATURE_LENGTH = 10;
  * @param globalSig  Global signature from SignatureStore
  * @returns  True if any valid signature is available for function calls
  */
-function hasValidSignatureForFunctionCalls(
-  messages: Message[],
-  globalSig: string | null | undefined,
-): boolean {
+function hasValidSignatureForFunctionCalls(messages: Message[], globalSig: string | null | undefined): boolean {
   // 1. Check global store
   if (globalSig && globalSig.length >= MIN_SIGNATURE_LENGTH) {
     return true;
@@ -517,11 +501,7 @@ function hasValidSignatureForFunctionCalls(
     if (msg.role === 'assistant') {
       if (Array.isArray(msg.content)) {
         for (const block of msg.content) {
-          if (
-            block.type === 'thinking' &&
-            block.signature &&
-            block.signature.length >= MIN_SIGNATURE_LENGTH
-          ) {
+          if (block.type === 'thinking' && block.signature && block.signature.length >= MIN_SIGNATURE_LENGTH) {
             return true;
           }
         }
@@ -540,7 +520,7 @@ function buildContents(
   toolIdToName: Map<string, string>,
   isThinkingEnabled: boolean,
   allowDummyThought: boolean,
-  mappedModel: string,
+  mappedModel: string
 ): GeminiContent[] {
   const contents: GeminiContent[] = [];
   let lastThoughtSignature: string | null = null;
@@ -577,10 +557,15 @@ function buildContents(
       } else if (block.type === 'image') {
         if (block.source.type === 'base64')
           parts.push({
-            inlineData: { mimeType: block.source.media_type, data: block.source.data },
+            inlineData: {
+              mimeType: block.source.media_type,
+              data: block.source.data
+            }
           });
       } else if (block.type === 'tool_use') {
-        const part: any = { functionCall: { name: block.name, args: block.input, id: block.id } };
+        const part: any = {
+          functionCall: { name: block.name, args: block.input, id: block.id }
+        };
         cleanJsonSchema(part);
         toolIdToName.set(block.id, block.name);
         const finalSig = block.signature || lastThoughtSignature || SignatureStore.get();
@@ -600,20 +585,21 @@ function buildContents(
             .map((b: any) => b.text)
             .join('\n');
         if (isEmpty(mergedContent.trim()))
-          mergedContent = block.is_error
-            ? 'Tool execution failed with no output.'
-            : 'Command executed successfully.';
+          mergedContent = block.is_error ? 'Tool execution failed with no output.' : 'Command executed successfully.';
         const part: any = {
           functionResponse: {
             name: funcName,
             response: { result: mergedContent },
-            id: block.tool_use_id,
-          },
+            id: block.tool_use_id
+          }
         };
         if (lastThoughtSignature) part.thoughtSignature = lastThoughtSignature;
         parts.push(part);
       } else if (block.type === 'redacted_thinking') {
-        parts.push({ text: `[Redacted Thinking: ${block.data}]`, thought: true });
+        parts.push({
+          text: `[Redacted Thinking: ${block.data}]`,
+          thought: true
+        });
       }
     }
     if (allowDummyThought && role === 'model' && isThinkingEnabled && i === messages.length - 1) {
@@ -632,7 +618,7 @@ function buildContents(
 function buildTools(
   tools: Tool[] | undefined,
   hasWebSearch: boolean,
-  mappedModel: string,
+  mappedModel: string
 ): GeminiToolDeclaration[] | null {
   if (!tools) {
     return null;
@@ -656,7 +642,7 @@ function buildTools(
       functionDeclarations.push({
         name: tool.name,
         description: tool.description,
-        parameters: inputSchema,
+        parameters: inputSchema
       });
     }
   }
@@ -666,7 +652,7 @@ function buildTools(
     toolList.push({ functionDeclarations });
     if (hasGoogleSearch) {
       logger.info(
-        `[Claude-Request] Skipping googleSearch injection for ${mappedModel} because functionDeclarations are present (v1internal incompatible)`,
+        `[Claude-Request] Skipping googleSearch injection for ${mappedModel} because functionDeclarations are present (v1internal incompatible)`
       );
     }
   } else if (hasGoogleSearch) {
@@ -687,7 +673,7 @@ function buildGenerationConfig(
   claudeReq: ClaudeRequest,
   hasWebSearch: boolean,
   mappedModel: string,
-  isThinkingEnabled: boolean,
+  isThinkingEnabled: boolean
 ): GenerationConfig {
   const source = String(claudeReq.metadata?.source || '').toLowerCase();
   const isOpenAIPath = source === 'openai';
@@ -695,7 +681,9 @@ function buildGenerationConfig(
   const thinkingType = String(claudeReq.thinking?.type ?? '').toLowerCase();
 
   const buildThinkingConfig = (): GenerationConfig['thinkingConfig'] => {
-    const thinkingConfig: GenerationConfig['thinkingConfig'] = { includeThoughts: true };
+    const thinkingConfig: GenerationConfig['thinkingConfig'] = {
+      includeThoughts: true
+    };
     if (thinkingType === 'adaptive') {
       if (isClaudeModel(mappedModel)) {
         thinkingConfig.thinkingLevel = resolveAdaptiveThinkingLevel(claudeReq);

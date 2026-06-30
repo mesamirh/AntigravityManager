@@ -3,9 +3,10 @@ import path from 'path';
 import os from 'os';
 import fs from 'fs';
 
-const APP_DATA = process.platform === 'win32' 
-  ? path.join(process.env.APPDATA || '', 'AntigravityManager')
-  : path.join(os.homedir(), '.config', 'AntigravityManager');
+const APP_DATA =
+  process.platform === 'win32'
+    ? path.join(process.env.APPDATA || '', 'AntigravityManager')
+    : path.join(os.homedir(), '.config', 'AntigravityManager');
 
 const DB_PATH = path.join(APP_DATA, 'cloud_accounts.db');
 
@@ -41,7 +42,9 @@ export function getActiveAccount(): Account | null {
 }
 
 export function addAccount(email: string, name: string, token: any) {
-  const stmt = db.prepare('INSERT OR REPLACE INTO accounts (email, name, token_json, quota_json, last_used) VALUES (?, ?, ?, ?, ?)');
+  const stmt = db.prepare(
+    'INSERT OR REPLACE INTO accounts (email, name, token_json, quota_json, last_used) VALUES (?, ?, ?, ?, ?)'
+  );
   stmt.run(email, name, JSON.stringify(token), '{}', Date.now());
 }
 
@@ -62,7 +65,9 @@ export function setActive(email: string) {
 }
 
 export function importAccounts(accounts: Account[]) {
-  const stmt = db.prepare('INSERT OR REPLACE INTO accounts (email, name, token_json, quota_json, last_used) VALUES (?, ?, ?, ?, ?)');
+  const stmt = db.prepare(
+    'INSERT OR REPLACE INTO accounts (email, name, token_json, quota_json, last_used) VALUES (?, ?, ?, ?, ?)'
+  );
   const drop = db.prepare('DELETE FROM accounts');
   const insertMany = db.transaction((accs) => {
     drop.run();

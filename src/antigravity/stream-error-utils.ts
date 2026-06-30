@@ -23,34 +23,34 @@ export function classifyStreamError(error: Error): ClassifiedError {
   if (msg.includes('timeout') || msg.includes('timedout')) {
     return {
       type: 'timeout_error',
-      message: 'Request timed out. Please check your network connection or try again later.',
+      message: 'Request timed out. Please check your network connection or try again later.'
     };
   }
 
   if (msg.includes('econnrefused') || msg.includes('connect')) {
     return {
       type: 'connection_error',
-      message: 'Unable to connect to server. Please check your network.',
+      message: 'Unable to connect to server. Please check your network.'
     };
   }
 
   if (msg.includes('enotfound') || msg.includes('network') || msg.includes('dns')) {
     return {
       type: 'network_error',
-      message: 'Network connection failed. Please check your network settings.',
+      message: 'Network connection failed. Please check your network settings.'
     };
   }
 
   if (msg.includes('socket') || msg.includes('aborted') || msg.includes('reset')) {
     return {
       type: 'stream_error',
-      message: 'Data transfer interrupted. Please try again later.',
+      message: 'Data transfer interrupted. Please try again later.'
     };
   }
 
   return {
     type: 'unknown_error',
-    message: `Unknown error occurred: ${error.message.substring(0, 100)}`,
+    message: `Unknown error occurred: ${error.message.substring(0, 100)}`
   };
 }
 
@@ -67,8 +67,8 @@ export function formatErrorForSSE(errorType: string, message: string): string {
     error: {
       type: errorType,
       message: message,
-      code: 'stream_error',
-    },
+      code: 'stream_error'
+    }
   };
 
   return `event: error\ndata: ${JSON.stringify(errorEvent)}\n\n`;

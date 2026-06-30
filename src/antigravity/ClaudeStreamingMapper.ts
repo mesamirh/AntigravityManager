@@ -60,7 +60,7 @@ export class StreamingState {
     const usage: Usage | undefined = usageMeta
       ? {
           input_tokens: usageMeta.promptTokenCount || 0,
-          output_tokens: usageMeta.candidatesTokenCount || 0,
+          output_tokens: usageMeta.candidatesTokenCount || 0
         }
       : undefined;
 
@@ -72,14 +72,14 @@ export class StreamingState {
       model: rawJson.modelVersion || '',
       stop_reason: null,
       stop_sequence: null,
-      usage: usage,
+      usage: usage
     };
 
     this.messageStartSent = true;
 
     return this.emit('message_start', {
       type: 'message_start',
-      message: message,
+      message: message
     });
   }
 
@@ -93,8 +93,8 @@ export class StreamingState {
       this.emit('content_block_start', {
         type: 'content_block_start',
         index: this.blockIndex,
-        content_block: contentBlock,
-      }),
+        content_block: contentBlock
+      })
     );
 
     this.blockType = blockType;
@@ -120,8 +120,8 @@ export class StreamingState {
     chunks.push(
       this.emit('content_block_stop', {
         type: 'content_block_stop',
-        index: this.blockIndex,
-      }),
+        index: this.blockIndex
+      })
     );
 
     this.blockIndex++;
@@ -135,7 +135,7 @@ export class StreamingState {
     return this.emit('content_block_delta', {
       type: 'content_block_delta',
       index: this.blockIndex,
-      delta: delta,
+      delta: delta
     });
   }
 
@@ -154,8 +154,8 @@ export class StreamingState {
         this.emit('content_block_start', {
           type: 'content_block_start',
           index: this.blockIndex,
-          content_block: { type: 'thinking', thinking: '' },
-        }),
+          content_block: { type: 'thinking', thinking: '' }
+        })
       );
 
       chunks.push(this.emitDelta('thinking_delta', { thinking: '' }));
@@ -164,8 +164,8 @@ export class StreamingState {
       chunks.push(
         this.emit('content_block_stop', {
           type: 'content_block_stop',
-          index: this.blockIndex,
-        }),
+          index: this.blockIndex
+        })
       );
       this.blockIndex++;
     }
@@ -194,12 +194,15 @@ export class StreamingState {
         this.emit('content_block_start', {
           type: 'content_block_start',
           index: this.blockIndex,
-          content_block: { type: 'text', text: '' },
-        }),
+          content_block: { type: 'text', text: '' }
+        })
       );
       chunks.push(this.emitDelta('text_delta', { text: groundingText }));
       chunks.push(
-        this.emit('content_block_stop', { type: 'content_block_stop', index: this.blockIndex }),
+        this.emit('content_block_stop', {
+          type: 'content_block_stop',
+          index: this.blockIndex
+        })
       );
       this.blockIndex++;
     }
@@ -215,7 +218,7 @@ export class StreamingState {
     const usage: Usage = usageMetadata
       ? {
           input_tokens: usageMetadata.promptTokenCount || 0,
-          output_tokens: usageMetadata.candidatesTokenCount || 0,
+          output_tokens: usageMetadata.candidatesTokenCount || 0
         }
       : { input_tokens: 0, output_tokens: 0 };
 
@@ -223,8 +226,8 @@ export class StreamingState {
       this.emit('message_delta', {
         type: 'message_delta',
         delta: { stop_reason: stopReason, stop_sequence: null },
-        usage: usage,
-      }),
+        usage: usage
+      })
     );
 
     if (!this.messageStopSent) {
@@ -250,9 +253,7 @@ export class StreamingState {
     const chunks: string[] = [];
     this.parseErrorCount++;
 
-    logger.warn(
-      `[SSE-Parser] Parse error #${this.parseErrorCount}. Raw data length: ${rawData.length}`,
-    );
+    logger.warn(`[SSE-Parser] Parse error #${this.parseErrorCount}. Raw data length: ${rawData.length}`);
 
     // Safely close current block
     if (this.blockType !== 'None') {
@@ -261,9 +262,7 @@ export class StreamingState {
 
     // Emit error event if too many errors
     if (this.parseErrorCount > 3) {
-      logger.error(
-        `[SSE-Parser] High error rate (${this.parseErrorCount} errors). Stream may be corrupted.`,
-      );
+      logger.error(`[SSE-Parser] High error rate (${this.parseErrorCount} errors). Stream may be corrupted.`);
       chunks.push(
         this.emit('error', {
           type: 'error',
@@ -273,10 +272,10 @@ export class StreamingState {
             code: 'stream_decode_error',
             details: {
               error_count: this.parseErrorCount,
-              suggestion: 'Check network connection',
-            },
-          },
-        }),
+              suggestion: 'Check network connection'
+            }
+          }
+        })
       );
     }
 
@@ -320,8 +319,8 @@ export class PartProcessor {
           this.state.emit('content_block_start', {
             type: 'content_block_start',
             index: this.state.blockIndex,
-            content_block: { type: 'thinking', thinking: '' },
-          }),
+            content_block: { type: 'thinking', thinking: '' }
+          })
         );
         chunks.push(this.state.emitDelta('thinking_delta', { thinking: '' }));
         chunks.push(this.state.emitDelta('signature_delta', { signature: trailingSig }));
@@ -366,8 +365,8 @@ export class PartProcessor {
         this.state.emit('content_block_start', {
           type: 'content_block_start',
           index: this.state.blockIndex,
-          content_block: { type: 'thinking', thinking: '' },
-        }),
+          content_block: { type: 'thinking', thinking: '' }
+        })
       );
       chunks.push(this.state.emitDelta('thinking_delta', { thinking: '' }));
       chunks.push(this.state.emitDelta('signature_delta', { signature: trailingSig }));
@@ -375,7 +374,12 @@ export class PartProcessor {
     }
 
     if (this.state.currentBlockType() !== 'Thinking') {
-      chunks.push(...this.state.startBlock('Thinking', { type: 'thinking', thinking: '' }));
+      chunks.push(
+        ...this.state.startBlock('Thinking', {
+          type: 'thinking',
+          thinking: ''
+        })
+      );
     }
 
     if (text) {
@@ -408,8 +412,8 @@ export class PartProcessor {
         this.state.emit('content_block_start', {
           type: 'content_block_start',
           index: this.state.blockIndex,
-          content_block: { type: 'thinking', thinking: '' },
-        }),
+          content_block: { type: 'thinking', thinking: '' }
+        })
       );
       chunks.push(this.state.emitDelta('thinking_delta', { thinking: '' }));
       chunks.push(this.state.emitDelta('signature_delta', { signature: trailingSig }));
@@ -428,8 +432,8 @@ export class PartProcessor {
         this.state.emit('content_block_start', {
           type: 'content_block_start',
           index: this.state.blockIndex,
-          content_block: { type: 'thinking', thinking: '' },
-        }),
+          content_block: { type: 'thinking', thinking: '' }
+        })
       );
       chunks.push(this.state.emitDelta('thinking_delta', { thinking: '' }));
       chunks.push(this.state.emitDelta('signature_delta', { signature: signature }));
@@ -447,10 +451,7 @@ export class PartProcessor {
     return chunks;
   }
 
-  private processFunctionCall(
-    fc: { name: string; args: any; id?: string },
-    signature?: string,
-  ): string[] {
+  private processFunctionCall(fc: { name: string; args: any; id?: string }, signature?: string): string[] {
     const chunks: string[] = [];
 
     this.state.markToolUsed();
@@ -461,7 +462,7 @@ export class PartProcessor {
       type: 'tool_use',
       id: toolId,
       name: fc.name,
-      input: {}, // Empty, args sent via delta
+      input: {} // Empty, args sent via delta
     };
 
     if (signature) {

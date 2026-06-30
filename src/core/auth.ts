@@ -36,13 +36,13 @@ export async function exchangeCodeForTokens(code: string): Promise<OAuthTokens> 
     client_secret: CLIENT_SECRET,
     code: code,
     grant_type: 'authorization_code',
-    redirect_uri: REDIRECT_URI,
+    redirect_uri: REDIRECT_URI
   });
 
   const res = await fetch(URL_TOKEN, {
     method: 'POST',
     body: params,
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
   });
 
   if (!res.ok) {
@@ -51,27 +51,33 @@ export async function exchangeCodeForTokens(code: string): Promise<OAuthTokens> 
   }
 
   const data = await res.json();
-  data.expiry_timestamp = Date.now() + (data.expires_in * 1000);
+  data.expiry_timestamp = Date.now() + data.expires_in * 1000;
   return data;
 }
 
 export async function fetchUserInfo(accessToken: string): Promise<UserInfo> {
   const res = await fetch(URL_USERINFO, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: { Authorization: `Bearer ${accessToken}` }
   });
   if (!res.ok) throw new Error(`Failed to fetch user info: ${res.statusText}`);
   return res.json();
 }
 
-export async function startOAuthFlow(): Promise<{ tokens: OAuthTokens; user: UserInfo }> {
+export async function startOAuthFlow(): Promise<{
+  tokens: OAuthTokens;
+  user: UserInfo;
+}> {
   return new Promise((resolve, reject) => {
     let server: http.Server;
-    
+
     // Safety timeout to prevent hanging forever
-    const timeout = setTimeout(() => {
-      if (server) server.close();
-      reject(new Error('OAuth flow timed out'));
-    }, 5 * 60 * 1000);
+    const timeout = setTimeout(
+      () => {
+        if (server) server.close();
+        reject(new Error('OAuth flow timed out'));
+      },
+      5 * 60 * 1000
+    );
 
     server = http.createServer(async (req, res) => {
       try {
@@ -82,8 +88,10 @@ export async function startOAuthFlow(): Promise<{ tokens: OAuthTokens; user: Use
         const code = url.searchParams.get('code');
         if (code) {
           res.writeHead(200, { 'Content-Type': 'text/html' });
-          res.end('<h1>Authentication successful!</h1><p>You can close this window and return to the terminal.</p><script>setTimeout(() => window.close(), 3000);</script>');
-          
+          res.end(
+            '<h1>Authentication successful!</h1><p>You can close this window and return to the terminal.</p><script>setTimeout(() => window.close(), 3000);</script>'
+          );
+
           server.close();
           clearTimeout(timeout);
 

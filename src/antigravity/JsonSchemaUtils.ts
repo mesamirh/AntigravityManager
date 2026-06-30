@@ -35,7 +35,10 @@ export function cleanJsonSchema(value: any) {
 }
 
 export function normalizeObjectJsonSchema(schema: unknown): Record<string, unknown> {
-  const fallbackSchema: Record<string, unknown> = { type: 'object', properties: {} };
+  const fallbackSchema: Record<string, unknown> = {
+    type: 'object',
+    properties: {}
+  };
   if (!isObjectLike(schema) || isArray(schema)) {
     return fallbackSchema;
   }
@@ -48,9 +51,7 @@ export function normalizeObjectJsonSchema(schema: unknown): Record<string, unkno
   }
   if (
     normalizedSchema.type === 'object' &&
-    (!normalizedSchema.properties ||
-      !isObjectLike(normalizedSchema.properties) ||
-      isArray(normalizedSchema.properties))
+    (!normalizedSchema.properties || !isObjectLike(normalizedSchema.properties) || isArray(normalizedSchema.properties))
   ) {
     normalizedSchema.properties = {};
   }
@@ -137,7 +138,7 @@ function cleanJsonSchemaRecursive(value: any) {
       ['exclusiveMinimum', 'exclMin'],
       ['exclusiveMaximum', 'exclMax'],
       ['multipleOf', 'multipleOf'],
-      ['format', 'format'],
+      ['format', 'format']
     ];
 
     for (const [field, label] of validationFields) {
@@ -182,7 +183,7 @@ function cleanJsonSchemaRecursive(value: any) {
       'dependentSchemas',
       'dependentRequired',
       'cache_control', // Fixes 400 error triggered by cache_control mentioned by user
-      'tools',
+      'tools'
     ];
     for (const field of hardRemoveFields) {
       delete map[field];

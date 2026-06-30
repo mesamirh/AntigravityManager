@@ -7,20 +7,61 @@ import { getAccounts, addAccount, setActive, deleteAccount } from '../core/db';
 import { startOAuthFlow, exchangeCodeForTokens, AUTH_URL, fetchUserInfo } from '../core/auth';
 import { killIDE, launchIDE } from '../core/process';
 import { renderAccountsTable } from '../ui/tables';
+export async function accountsMenu() {
+  while (true) {
+    console.clear();
+    const accounts = getAccounts();
 
-export async function listAccounts() {
-  const accounts = getAccounts();
-  if (accounts.length === 0) {
-    console.log(picocolors.yellow('  No accounts found in database.'));
-    return;
+    if (accounts.length === 0) {
+      console.log(picocolors.yellow('  No accounts found in database.'));
+    } else {
+      renderAccountsTable(accounts);
+    }
+
+    const action = await select({
+      message: 'Manage Accounts:',
+      options: [
+        { value: 'switch', label: 'Switch Active Account' },
+        { value: 'add', label: 'Add New Account' },
+        { value: 'remove', label: 'Remove Account' },
+        { value: 'import', label: 'Import from IDE' },
+        { value: 'back', label: 'Back to Main Menu' }
+      ]
+    });
+
+    if (isCancel(action) || action === 'back') {
+      return;
+    }
+
+    const s = spinner();
+    switch (action) {
+      case 'switch':
+        await switchAccountInteractive(s);
+        break;
+      case 'add':
+        await addAccountInteractive(s);
+        break;
+      case 'remove':
+        await removeAccountInteractive(s);
+        break;
+      case 'import':
+        await importIDEAccounts(s);
+        break;
+    }
+
+    await select({
+      message: 'Press Enter to continue...',
+      options: [{ value: 'ok', label: 'Continue' }]
+    });
   }
-  
-  renderAccountsTable(accounts);
 }
 
 export async function addAccountInteractive(s: ReturnType<typeof spinner>) {
-  note(`To authenticate, we will open a browser window to Google.\nIf that fails, please visit this URL manually:\n\n${picocolors.cyan(AUTH_URL)}`, 'Authentication Setup');
-  
+  note(
+    `To authenticate, we will open a browser window to Google.\nIf that fails, please visit this URL manually:\n\n${picocolors.cyan(AUTH_URL)}`,
+    'Authentication Setup'
+  );
+
   const mode = await select({
     message: 'How would you like to authenticate?',
     options: [
@@ -69,13 +110,10 @@ export async function removeAccountInteractive(s: ReturnType<typeof spinner>) {
     console.log(picocolors.yellow('No accounts available to remove.'));
     return;
   }
-  
+
   const accountToRemove = await select({
     message: 'Select an account to remove:',
-    options: [
-      ...accounts.map(a => ({ value: a.email, label: a.email })),
-      { value: 'back', label: 'Cancel / Back' }
-    ]
+    options: [...accounts.map((a) => ({ value: a.email, label: a.email })), { value: 'back', label: 'Cancel / Back' }]
   });
 
   if (accountToRemove === 'back' || isCancel(accountToRemove)) return;
@@ -89,30 +127,40 @@ export async function importIDEAccounts(s: ReturnType<typeof spinner>) {
   s.start('Searching for VS Code / Cursor state databases...');
   const possiblePaths = [
     path.join(process.env.HOME || '', 'Library', 'Application Support', 'Code', 'User', 'globalStorage', 'state.vscdb'),
-    path.join(process.env.HOME || '', 'Library', 'Application Support', 'Cursor', 'User', 'globalStorage', 'state.vscdb'),
+    path.join(
+      process.env.HOME || '',
+      'Library',
+      'Application Support',
+      'Cursor',
+      'User',
+      'globalStorage',
+      'state.vscdb'
+    ),
     path.join(process.env.APPDATA || '', 'Code', 'User', 'globalStorage', 'state.vscdb'),
-    path.join(process.env.APPDATA || '', 'Cursor', 'User', 'globalStorage', 'state.vscdb'),
+    path.join(process.env.APPDATA || '', 'Cursor', 'User', 'globalStorage', 'state.vscdb')
   ];
-  
+
   let found = 0;
   for (const dbPath of possiblePaths) {
     if (fs.existsSync(dbPath)) {
       try {
         const db = new Database(dbPath, { readonly: true });
-        const row = db.prepare("SELECT value FROM ItemTable WHERE key = 'antigravityUnifiedStateSync.oauthToken'").get() as any;
+        const row = db
+          .prepare("SELECT value FROM ItemTable WHERE key = 'antigravityUnifiedStateSync.oauthToken'")
+          .get() as any;
         if (row && row.value) {
           const val = row.value.toString();
           // Simple regex to extract token strings from protobuf binary payload
           const accessTokenMatch = val.match(/(ya29\.[a-zA-Z0-9_-]+)/);
           const refreshTokenMatch = val.match(/(1\/\/[a-zA-Z0-9_-]+)/);
           if (accessTokenMatch) {
-              const tokenJson = { 
-                access_token: accessTokenMatch[1], 
-                refresh_token: refreshTokenMatch ? refreshTokenMatch[1] : undefined 
-              };
-              const email = `ide-import-${found+1}@local.ide`;
-              addAccount(email, 'Imported from IDE', tokenJson);
-              found++;
+            const tokenJson = {
+              access_token: accessTokenMatch[1],
+              refresh_token: refreshTokenMatch ? refreshTokenMatch[1] : undefined
+            };
+            const email = `ide-import-${found + 1}@local.ide`;
+            addAccount(email, 'Imported from IDE', tokenJson);
+            found++;
           }
         }
         db.close();
@@ -134,10 +182,10 @@ export async function switchAccountInteractive(s: ReturnType<typeof spinner>) {
     console.log(picocolors.yellow('No accounts available to switch to.'));
     return;
   }
-  
+
   const accountToSwitch = await select({
     message: 'Select an account to inject into IDE:',
-    options: accounts.map(a => ({ value: a.email, label: a.email }))
+    options: accounts.map((a) => ({ value: a.email, label: a.email }))
   });
 
   if (isCancel(accountToSwitch)) return;

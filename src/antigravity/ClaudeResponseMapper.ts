@@ -1,12 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import {
-  ClaudeResponse,
-  GeminiResponse,
-  GeminiPart,
-  ContentBlock,
-  Usage,
-  GroundingMetadata,
-} from './types';
+import { ClaudeResponse, GeminiResponse, GeminiPart, ContentBlock, Usage, GroundingMetadata } from './types';
 import { decodeSignature } from './signature-utils';
 
 /**
@@ -46,7 +39,7 @@ class NonStreamingProcessor {
       this.contentBlocks.push({
         type: 'thinking',
         thinking: '',
-        signature: this.trailingSignature,
+        signature: this.trailingSignature
       });
       this.trailingSignature = null; // Consumed
     }
@@ -68,7 +61,7 @@ class NonStreamingProcessor {
         this.contentBlocks.push({
           type: 'thinking',
           thinking: '',
-          signature: this.trailingSignature,
+          signature: this.trailingSignature
         });
         this.trailingSignature = null;
       }
@@ -83,7 +76,7 @@ class NonStreamingProcessor {
         id: toolId,
         name: fc.name,
         input: fc.args || {},
-        signature: signature || undefined,
+        signature: signature || undefined
       };
 
       this.contentBlocks.push(toolUse);
@@ -103,7 +96,7 @@ class NonStreamingProcessor {
           this.contentBlocks.push({
             type: 'thinking',
             thinking: '',
-            signature: this.trailingSignature,
+            signature: this.trailingSignature
           });
           this.trailingSignature = null;
         }
@@ -130,7 +123,7 @@ class NonStreamingProcessor {
           this.contentBlocks.push({
             type: 'thinking',
             thinking: '',
-            signature: this.trailingSignature,
+            signature: this.trailingSignature
           });
           this.trailingSignature = null;
         }
@@ -143,7 +136,7 @@ class NonStreamingProcessor {
           this.contentBlocks.push({
             type: 'thinking',
             thinking: '',
-            signature: signature,
+            signature: signature
           });
         }
       }
@@ -195,7 +188,7 @@ class NonStreamingProcessor {
     if (!this.textBuilder) return;
     this.contentBlocks.push({
       type: 'text',
-      text: this.textBuilder,
+      text: this.textBuilder
     });
     this.textBuilder = '';
   }
@@ -206,7 +199,7 @@ class NonStreamingProcessor {
     this.contentBlocks.push({
       type: 'thinking',
       thinking: this.thinkingBuilder,
-      signature: this.thinkingSignature || undefined,
+      signature: this.thinkingSignature || undefined
     });
 
     this.thinkingBuilder = '';
@@ -227,7 +220,7 @@ class NonStreamingProcessor {
       input_tokens: geminiResponse.usageMetadata?.promptTokenCount || 0,
       output_tokens: geminiResponse.usageMetadata?.candidatesTokenCount || 0,
       cache_creation_input_tokens: 0,
-      cache_read_input_tokens: 0,
+      cache_read_input_tokens: 0
     };
 
     return {
@@ -237,7 +230,7 @@ class NonStreamingProcessor {
       model: geminiResponse.modelVersion || '',
       content: this.contentBlocks,
       stop_reason: stopReason,
-      usage: usage,
+      usage: usage
     };
   }
 }
