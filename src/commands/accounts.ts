@@ -5,6 +5,7 @@ import path from 'path';
 import Database from 'better-sqlite3';
 import { getAccounts, addAccount, setActive, deleteAccount } from '../core/db';
 import { startOAuthFlow, exchangeCodeForTokens, AUTH_URL, fetchUserInfo } from '../core/auth';
+import { refreshAllQuotas } from '../core/cloud';
 import { killIDE, launchIDE } from '../core/process';
 import { renderAccountsTable } from '../ui/tables';
 export async function accountsMenu() {
@@ -94,7 +95,9 @@ export async function addAccountInteractive(s: ReturnType<typeof spinner>) {
 
     if (userData.email) {
       addAccount(userData.email, userData.name, tokenData);
-      console.log(`Successfully added account: ${picocolors.green(userData.email)}`);
+      s.start('Fetching initial quota data...');
+      await refreshAllQuotas();
+      s.stop(`Successfully added account: ${picocolors.green(userData.email)}`);
     } else {
       console.log(picocolors.red('Could not determine email, account not saved.'));
     }
