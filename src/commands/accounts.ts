@@ -6,7 +6,8 @@ import Database from 'better-sqlite3';
 import { getAccounts, addAccount, setActive, deleteAccount } from '../core/db';
 import { startOAuthFlow, exchangeCodeForTokens, AUTH_URL, fetchUserInfo } from '../core/auth';
 import { refreshAllQuotas } from '../core/cloud';
-import { killIDE, launchIDE } from '../core/process';
+import { killIDE, launchIDE, isIDERunning } from '../core/process';
+import { injectTokenIntoIDE } from '../core/ideInjector';
 import { renderAccountsTable } from '../ui/tables';
 export async function accountsMenu() {
   while (true) {
@@ -148,17 +149,15 @@ export async function importIDEAccounts(s: ReturnType<typeof spinner>) {
     if (fs.existsSync(dbPath)) {
       try {
         const db = new Database(dbPath, { readonly: true });
-        const row = db
+        const oauthRow = db
           .prepare("SELECT value FROM ItemTable WHERE key = 'antigravityUnifiedStateSync.oauthToken'")
           .get() as any;
-        if (row && row.value) {
-          const val = row.value.toString();
-          // Simple regex to extract token strings from protobuf binary payload
-          const accessTokenMatch = val.match(/(ya29\.[a-zA-Z0-9_-]+)/);
-          const refreshTokenMatch = val.match(/(1\/\/[a-zA-Z0-9_-]+)/);
-          if (accessTokenMatch) {
+        if (oauthRow) {
+          const match = oauthRow.value.match(/ya29\.[a-zA-Z0-9_-]+/);
+          const refreshTokenMatch = oauthRow.value.match(/(1\/\/[a-zA-Z0-9_-]+)/);
+          if (match) {
             const tokenJson = {
-              access_token: accessTokenMatch[1],
+              access_token: match[0],
               refresh_token: refreshTokenMatch ? refreshTokenMatch[1] : undefined
             };
             const email = `ide-import-${found + 1}@local.ide`;
@@ -167,9 +166,7 @@ export async function importIDEAccounts(s: ReturnType<typeof spinner>) {
           }
         }
         db.close();
-      } catch (e) {
-        // Ignore locked DBs or missing tables
-      }
+      } catch (e) {}
     }
   }
   if (found > 0) {
@@ -194,8 +191,30 @@ export async function switchAccountInteractive(s: ReturnType<typeof spinner>) {
   if (isCancel(accountToSwitch)) return;
 
   s.start('Killing IDE processes...');
-  await killIDE(false); // Graceful
+  await killIDE(false);
+
+  for (let i = 0; i < 10; i++) {
+    const running = await isIDERunning();
+    if (!running) break;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  await new Promise((r) => setTimeout(r, 1000));
+
   setActive(accountToSwitch.toString());
+
+  const targetAccount = accounts.find((a) => a.email === accountToSwitch.toString());
+  if (targetAccount) {
+    s.message('Injecting token into IDE state.vscdb...');
+    const injected = injectTokenIntoIDE(targetAccount);
+    if (!injected) {
+      console.log(
+        picocolors.yellow(
+          '\nWarning: Failed to inject token directly into IDE state.vscdb. If you are not using the proxy, you may need to sign in again in the IDE.'
+        )
+      );
+    }
+  }
+
   s.message('Launching IDE with new account...');
   await launchIDE();
   s.stop(`Successfully switched IDE to ${picocolors.green(accountToSwitch.toString())}`);

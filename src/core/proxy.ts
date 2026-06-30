@@ -1,9 +1,13 @@
 import http from 'http';
 import { getAccounts, getActiveAccount, setActive } from './db';
 import { refreshAllQuotas } from './cloud';
-
+import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
+
+import { transformClaudeRequestIn } from '../antigravity/ClaudeRequestMapper';
+import { transformResponse } from '../antigravity/ClaudeResponseMapper';
+import { StreamingState, PartProcessor } from '../antigravity/ClaudeStreamingMapper';
 
 const APP_DATA =
   process.platform === 'win32'
@@ -131,44 +135,106 @@ export function startProxy() {
         let parsedBody: any = {};
         try {
           parsedBody = JSON.parse(body);
-        } catch (e) {}
+        } catch (e) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ error: { message: 'Invalid JSON' } }));
+        }
 
         const requestedModel = parsedBody.model || 'unknown';
         const mappedModel = modelMapping[requestedModel] || requestedModel;
+        const isStreaming = Boolean(parsedBody.stream);
 
-        res.writeHead(200, { 'Content-Type': 'application/json' });
+        try {
+          const geminiReq = transformClaudeRequestIn(parsedBody, mappedModel);
+          const baseUrl = 'https://cloudcode-pa.googleapis.com/v1internal';
 
-        if (req.url === '/v1/messages') {
-          // Anthropic compatibility layer
+          if (isStreaming) {
+            const url = `${baseUrl}/models/${mappedModel}:streamGenerateContent?alt=sse`;
+            const response = await axios.post(url, geminiReq, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              },
+              responseType: 'stream',
+              timeout: config.timeoutMs
+            });
+
+            res.writeHead(200, {
+              'Content-Type': 'text/event-stream',
+              'Cache-Control': 'no-cache',
+              Connection: 'keep-alive'
+            });
+
+            const state = new StreamingState();
+            const processor = new PartProcessor(state);
+
+            let buffer = '';
+            response.data.on('data', (chunk: Buffer) => {
+              buffer += chunk.toString('utf-8');
+              let boundary = buffer.indexOf('\n\n');
+              while (boundary !== -1) {
+                const eventText = buffer.slice(0, boundary);
+                buffer = buffer.slice(boundary + 2);
+
+                if (eventText.startsWith('data: ')) {
+                  const dataStr = eventText.slice(6).trim();
+                  if (dataStr === '[DONE]') continue;
+
+                  try {
+                    const payload = JSON.parse(dataStr);
+                    if (!state.messageStartSent) {
+                      res.write(state.emitMessageStart(payload));
+                    }
+
+                    const parts = payload.candidates?.[0]?.content?.parts || [];
+                    for (const part of parts) {
+                      const outChunks = processor.process(part);
+                      for (const out of outChunks) res.write(out);
+                    }
+                  } catch (err) {}
+                }
+                boundary = buffer.indexOf('\n\n');
+              }
+            });
+
+            response.data.on('end', () => {
+              const finishChunks = state.emitFinish();
+              for (const fc of finishChunks) res.write(fc);
+              res.end();
+            });
+
+            response.data.on('error', () => {
+              res.end();
+            });
+          } else {
+            // Non-streaming
+            const url = `${baseUrl}/models/${mappedModel}:generateContent`;
+            const response = await axios.post(url, geminiReq, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              },
+              timeout: config.timeoutMs
+            });
+
+            const anthropicRes = transformResponse(response.data);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(anthropicRes));
+          }
+        } catch (error: any) {
+          let status = 500;
+          let errMsg = error.message;
+          if (axios.isAxiosError(error)) {
+            status = error.response?.status || 500;
+            errMsg = error.response?.data?.error?.message || errMsg;
+          }
+          res.writeHead(status, { 'Content-Type': 'application/json' });
           res.end(
             JSON.stringify({
-              id: 'msg_proxy',
-              type: 'message',
-              role: 'assistant',
-              model: mappedModel,
-              content: [
-                {
-                  type: 'text',
-                  text: `[Anthropic API Proxied] Mapped ${requestedModel} -> ${mappedModel} using account: ${active.email}`
-                }
-              ]
-            })
-          );
-        } else {
-          // OpenAI compatibility layer
-          res.end(
-            JSON.stringify({
-              id: 'chatcmpl-proxy',
-              object: 'chat.completion',
-              model: mappedModel,
-              choices: [
-                {
-                  message: {
-                    role: 'assistant',
-                    content: `[OpenAI API Proxied] Mapped ${requestedModel} -> ${mappedModel} using account: ${active.email}`
-                  }
-                }
-              ]
+              error: {
+                type: 'api_error',
+                message: errMsg
+              }
             })
           );
         }

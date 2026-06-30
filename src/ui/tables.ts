@@ -1,15 +1,18 @@
 import picocolors from 'picocolors';
+import { createResponsiveTable, ColumnDef } from './ResponsiveTable';
 
 export function renderAccountsTable(accounts: any[]) {
-  console.log(
-    '  ┌────┬──────────────────────┬──────────────────────────────┬──────────────┬────────┬────────┬──────────────────────┐'
-  );
-  console.log(
-    `  │ ${picocolors.bold('ID'.padEnd(2))} │ ${picocolors.bold('Name'.padEnd(20))} │ ${picocolors.bold('Email'.padEnd(28))} │ ${picocolors.bold('Status'.padEnd(12))} │ ${picocolors.bold('Gemini'.padEnd(6))} │ ${picocolors.bold('Claude'.padEnd(6))} │ ${picocolors.bold('Last Used'.padEnd(20))} │`
-  );
-  console.log(
-    '  ├────┼──────────────────────┼──────────────────────────────┼──────────────┼────────┼────────┼──────────────────────┤'
-  );
+  const columns: ColumnDef[] = [
+    { header: 'ID', weight: 0.05, minWidth: 4, align: 'center' },
+    { header: 'Name', weight: 0.2, hideOnNarrow: true },
+    { header: 'Email', weight: 0.3 },
+    { header: 'Status', weight: 0.15 },
+    { header: 'Gemini', weight: 0.1, align: 'center' },
+    { header: 'Claude', weight: 0.1, align: 'center' },
+    { header: 'Last Used', weight: 0.1, hideOnNarrow: true }
+  ];
+
+  const rows: string[][] = [];
 
   accounts.forEach((acc, i) => {
     let statusRaw = 'Unknown';
@@ -63,7 +66,7 @@ export function renderAccountsTable(accounts: any[]) {
           }
 
           if (gCount === 0 && cCount === 0) {
-            isRateLimited = false; // No quota data yet
+            isRateLimited = false;
           }
 
           if (isActive) {
@@ -80,35 +83,36 @@ export function renderAccountsTable(accounts: any[]) {
       }
     } catch (e) {}
 
-    const idPad = String(i + 1).padEnd(2);
-    const nameStr = acc.name ? acc.name.substring(0, 20) : 'Unknown';
-    const namePad = nameStr.padEnd(20);
-    const emailPad = acc.email.substring(0, 28).padEnd(28);
-    const statusPad = statusRaw.padEnd(12);
-    const gPad = gRaw.padStart(6);
-    const cPad = cRaw.padStart(6);
+    const idPad = String(i + 1);
+    const nameStr = acc.name || 'Unknown';
+    const emailPad = picocolors.cyan(acc.email);
+    const statusPad = statusColor(statusRaw);
+    const gPad = gColor(gRaw);
+    const cPad = cColor(cRaw);
 
     let lastUsedStr = acc.last_used ? new Date(acc.last_used).toLocaleString() : 'Never';
-    lastUsedStr = lastUsedStr.substring(0, 20);
-    const datePad = lastUsedStr.padEnd(20);
 
-    console.log(
-      `  │ ${idPad} │ ${namePad} │ ${picocolors.cyan(emailPad)} │ ${statusColor(statusPad)} │ ${gColor(gPad)} │ ${cColor(cPad)} │ ${picocolors.gray(datePad)} │`
-    );
+    rows.push([idPad, nameStr, emailPad, statusPad, gPad, cPad, picocolors.gray(lastUsedStr)]);
   });
+
   console.log(
-    '  └────┴──────────────────────┴──────────────────────────────┴──────────────┴────────┴────────┴──────────────────────┘'
+    createResponsiveTable(columns, rows)
+      .split('\n')
+      .map((line) => '  ' + line)
+      .join('\n')
   );
 }
 
 export function renderQuotasTable(entries: [string, any][]) {
-  console.log('  ┌────────────────────────────────┬─────────┬────────────┬──────────────────────────────┐');
-  console.log(
-    `  │ ${picocolors.bold('Model Name'.padEnd(30))} │ ${picocolors.bold('Quota'.padEnd(7))} │ ${picocolors.bold('Progress'.padEnd(10))} │ ${picocolors.bold('Reset Time'.padEnd(28))} │`
-  );
-  console.log('  ├────────────────────────────────┼─────────┼────────────┼──────────────────────────────┤');
+  const columns: ColumnDef[] = [
+    { header: 'Model Name', weight: 0.4 },
+    { header: 'Quota', weight: 0.1, align: 'center' },
+    { header: 'Progress', weight: 0.2 },
+    { header: 'Reset Time', weight: 0.3, hideOnNarrow: true }
+  ];
 
-  // Sort by percentage descending, then alphabetically
+  const rows: string[][] = [];
+
   entries.sort((a, b) => {
     const pA = a[1].percentage || 0;
     const pB = b[1].percentage || 0;
@@ -116,23 +120,28 @@ export function renderQuotasTable(entries: [string, any][]) {
     return a[0].localeCompare(b[0]);
   });
 
+  const termWidth = process.stdout.columns || 100;
+  const progressColChars = Math.max(10, Math.floor(termWidth * 0.2) - 4);
+
   for (const [modelName, info] of entries) {
     const p = info.percentage || 0;
     const color = p > 20 ? picocolors.green : p > 5 ? picocolors.yellow : picocolors.red;
 
     const pStr = `${p}%`;
-    const pPad = pStr.padStart(7);
 
-    const filledLength = Math.round(p / 10);
-    const emptyLength = 10 - filledLength;
+    const filledLength = Math.round((p / 100) * progressColChars);
+    const emptyLength = Math.max(0, progressColChars - filledLength);
     const bar = '█'.repeat(filledLength) + '░'.repeat(emptyLength);
 
     let resetStr = info.resetTime ? new Date(info.resetTime).toLocaleString() : 'N/A';
-    resetStr = resetStr.padEnd(28);
 
-    console.log(
-      `  │ ${picocolors.cyan(modelName.padEnd(30))} │ ${color(pPad)} │ ${color(bar)} │ ${picocolors.gray(resetStr)} │`
-    );
+    rows.push([picocolors.cyan(modelName), color(pStr), color(bar), picocolors.gray(resetStr)]);
   }
-  console.log('  └────────────────────────────────┴─────────┴────────────┴──────────────────────────────┘');
+
+  console.log(
+    createResponsiveTable(columns, rows)
+      .split('\n')
+      .map((line) => '  ' + line)
+      .join('\n')
+  );
 }
